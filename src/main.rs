@@ -1,4 +1,9 @@
+mod db;
 mod error;
+mod handlers;
+mod models;
+
+use models::{AppState, UrlData};
 
 use axum::{
     Json, Router,
@@ -6,45 +11,15 @@ use axum::{
     response::Redirect,
     routing::{delete, get, post},
 };
-use chrono::{Duration, prelude::*};
+use chrono::prelude::*;
 use dotenv::dotenv;
-use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::SqlitePool;
 use std::{env, sync::Arc};
-use validator::Validate;
 
 use error::AppError;
 
-#[derive(Clone, Serialize, sqlx::FromRow)]
-struct UrlData {
-    short_code: String,
-    original_url: String,
-    created_at: DateTime<Utc>,
-    expires_at: Option<DateTime<Utc>>,
-    visits: i64,
-}
-
-struct AppState {
-    pool: SqlitePool,
-}
-
-#[derive(Deserialize, Validate)]
-struct ShortenRequest {
-    #[validate(url(message = "Not a valid URL"))]
-    url: String,
-
-    #[validate(length(min = 6))]
-    code: Option<String>,
-
-    ttl: Option<i64>,
-}
-
-#[derive(Serialize)]
-struct ShortenResponse {
-    short_code: String,
-    short_url: String,
-}
+use handlers::create_url_handler;
 
 #[tokio::main]
 async fn main() {
@@ -59,7 +34,7 @@ async fn main() {
     let state = Arc::new(AppState { pool });
 
     let app = Router::new()
-        .route("/shorten", post(shorten_url))
+        .route("/shorten", post(create_url_handler))
         .route("/list", get(list_urls))
         .route("/stats/:code", get(stats_handler))
         .route("/delete/:code", delete(delete_url_handler))
@@ -73,40 +48,6 @@ async fn main() {
     println!("Server running on http://127.0.0.1:3000");
 
     axum::serve(listener, app).await.unwrap();
-}
-
-async fn shorten_url(
-    State(app_state): State<Arc<AppState>>,
-    Json(payload): Json<ShortenRequest>,
-) -> Result<Json<ShortenResponse>, AppError> {
-    if let Err(e) = payload.validate() {
-        return Err(AppError::ValidationError(e.to_string()));
-    }
-
-    let code = match payload.code {
-        Some(code) => code,
-        _ => nanoid::nanoid!(6),
-    };
-
-    let expires_at = payload.ttl.map(|x| Utc::now() + Duration::seconds(x));
-
-    let created_at = Utc::now();
-
-    sqlx::query!(
-        "insert into urls (short_code, original_url, visits, created_at, expires_at) values ($1, $2, $3, $4, $5)",
-        code,
-        payload.url,
-        0,
-        created_at,
-        expires_at,
-    ).fetch_one(&app_state.pool).await?;
-
-    let response = ShortenResponse {
-        short_code: code.clone(),
-        short_url: format!("http://localhost:3000/{}", code),
-    };
-
-    Ok(Json(response))
 }
 
 async fn redirect_url(
