@@ -6,7 +6,7 @@ use axum::{
     response::Redirect,
 };
 use chrono::Utc;
-use sqlx::pool;
+use serde_json::{Value, json};
 use validator::Validate;
 
 use crate::{
@@ -63,6 +63,38 @@ pub async fn list_urls_handler(
 
     match url_db.list_urls().await {
         Ok(data) => Ok(Json(data)),
+        Err(e) => Err(e),
+    }
+}
+
+pub async fn url_stats_handler(
+    State(app_state): State<Arc<AppState>>,
+    Path(path): Path<String>,
+) -> Result<Json<UrlData>, AppError> {
+    let url_db = UrlDb::new(app_state.pool.clone());
+
+    match url_db.get_url(path).await {
+        Ok(data) => Ok(Json(data)),
+        Err(e) => Err(e),
+    }
+}
+
+pub async fn delete_url_handler(
+    State(app_state): State<Arc<AppState>>,
+    Path(path): Path<String>,
+) -> Result<Json<Value>, AppError> {
+    let url_db = UrlDb::new(app_state.pool.clone());
+
+    match url_db.delete_url(path).await {
+        Ok(data) => {
+            if data {
+                Ok(Json(json!({
+                    "message": "Url successfully deleted"
+                })))
+            } else {
+                Err(AppError::UrlNotFound)
+            }
+        }
         Err(e) => Err(e),
     }
 }

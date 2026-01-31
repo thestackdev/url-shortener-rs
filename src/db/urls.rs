@@ -48,4 +48,12 @@ impl UrlDb {
 
         Ok(response)
     }
+
+    pub async fn delete_url(&self, path: String) -> Result<bool, AppError> {
+        let response = sqlx::query!("delete from urls where short_code = $1", path)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(response.rows_affected() >= 1)
+    }
 }
