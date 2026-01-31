@@ -19,7 +19,7 @@ use error::AppError;
 
 use handlers::create_url_handler;
 
-use crate::handlers::handle_url_redirect;
+use crate::handlers::{handle_url_redirect, list_urls_handler};
 
 #[tokio::main]
 async fn main() {
@@ -35,7 +35,7 @@ async fn main() {
 
     let app = Router::new()
         .route("/shorten", post(create_url_handler))
-        .route("/list", get(list_urls))
+        .route("/list", get(list_urls_handler))
         .route("/stats/:code", get(stats_handler))
         .route("/delete/:code", delete(delete_url_handler))
         .route("/:code", get(handle_url_redirect))
@@ -48,14 +48,6 @@ async fn main() {
     println!("Server running on http://127.0.0.1:3000");
 
     axum::serve(listener, app).await.unwrap();
-}
-
-async fn list_urls(State(app_state): State<Arc<AppState>>) -> Result<Json<Vec<UrlData>>, AppError> {
-    let records: Vec<UrlData> = sqlx::query_as("select * from urls")
-        .fetch_all(&app_state.pool)
-        .await?;
-
-    Ok(Json(records))
 }
 
 async fn delete_url_handler(

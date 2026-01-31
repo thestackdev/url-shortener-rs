@@ -6,12 +6,13 @@ use axum::{
     response::Redirect,
 };
 use chrono::Utc;
+use sqlx::pool;
 use validator::Validate;
 
 use crate::{
     db::UrlDb,
     error::AppError,
-    models::{AppState, ShortenRequest, ShortenResponse},
+    models::{AppState, ShortenRequest, ShortenResponse, UrlData},
 };
 
 pub async fn create_url_handler(
@@ -51,6 +52,17 @@ pub async fn handle_url_redirect(
 
             Ok(Redirect::permanent(&data.original_url))
         }
+        Err(e) => Err(e),
+    }
+}
+
+pub async fn list_urls_handler(
+    State(app_state): State<Arc<AppState>>,
+) -> Result<Json<Vec<UrlData>>, AppError> {
+    let url_db = UrlDb::new(app_state.pool.clone());
+
+    match url_db.list_urls().await {
+        Ok(data) => Ok(Json(data)),
         Err(e) => Err(e),
     }
 }

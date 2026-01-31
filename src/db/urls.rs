@@ -40,4 +40,12 @@ impl UrlDb {
 
         Ok(response)
     }
+
+    pub async fn list_urls(&self) -> Result<Vec<UrlData>, AppError> {
+        let response = sqlx::query_as("select * from urls")
+            .fetch_all(&self.pool)
+            .await?;
+
+        Ok(response)
+    }
 }
