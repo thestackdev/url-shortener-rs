@@ -40,7 +40,7 @@ pub async fn handle_url_redirect(
 ) -> Result<Redirect, AppError> {
     let url_db = UrlDb::new(app_state.pool.clone());
 
-    let url = url_db.get_url(path).await;
+    let url = url_db.get_url(&path).await;
 
     match url {
         Ok(data) => {
@@ -49,6 +49,8 @@ pub async fn handle_url_redirect(
             {
                 return Err(AppError::UrlNotFound);
             }
+
+            let _ = url_db.update_visitors(&path).await;
 
             Ok(Redirect::permanent(&data.original_url))
         }
@@ -73,7 +75,7 @@ pub async fn url_stats_handler(
 ) -> Result<Json<UrlData>, AppError> {
     let url_db = UrlDb::new(app_state.pool.clone());
 
-    match url_db.get_url(path).await {
+    match url_db.get_url(&path).await {
         Ok(data) => Ok(Json(data)),
         Err(e) => Err(e),
     }

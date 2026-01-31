@@ -32,7 +32,7 @@ impl UrlDb {
         Ok(short_code)
     }
 
-    pub async fn get_url(&self, short_code: String) -> Result<UrlData, AppError> {
+    pub async fn get_url(&self, short_code: &String) -> Result<UrlData, AppError> {
         let response: UrlData = sqlx::query_as("select * from urls where short_code = $1")
             .bind(short_code)
             .fetch_one(&self.pool)
@@ -55,5 +55,16 @@ impl UrlDb {
             .await?;
 
         Ok(response.rows_affected() >= 1)
+    }
+
+    pub async fn update_visitors(&self, path: &String) -> Result<(), AppError> {
+        let _ = sqlx::query!(
+            "update urls set visits = visits + 1 where short_code = $1",
+            path
+        )
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
     }
 }
