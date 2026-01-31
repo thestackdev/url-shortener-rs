@@ -1,0 +1,7 @@
+/target
+.sqlx/
+.claude/
+*.db
+.env
+
+
