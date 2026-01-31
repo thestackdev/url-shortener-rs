@@ -8,10 +8,8 @@ use models::{AppState, UrlData};
 use axum::{
     Json, Router,
     extract::{Path, State},
-    response::Redirect,
     routing::{delete, get, post},
 };
-use chrono::prelude::*;
 use dotenv::dotenv;
 use serde_json::json;
 use sqlx::SqlitePool;
@@ -20,6 +18,8 @@ use std::{env, sync::Arc};
 use error::AppError;
 
 use handlers::create_url_handler;
+
+use crate::handlers::handle_url_redirect;
 
 #[tokio::main]
 async fn main() {
@@ -38,7 +38,7 @@ async fn main() {
         .route("/list", get(list_urls))
         .route("/stats/:code", get(stats_handler))
         .route("/delete/:code", delete(delete_url_handler))
-        .route("/:code", get(redirect_url))
+        .route("/:code", get(handle_url_redirect))
         .with_state(state);
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
@@ -48,32 +48,6 @@ async fn main() {
     println!("Server running on http://127.0.0.1:3000");
 
     axum::serve(listener, app).await.unwrap();
-}
-
-async fn redirect_url(
-    State(app_state): State<Arc<AppState>>,
-    Path(path): Path<String>,
-) -> Result<Redirect, AppError> {
-    match get_url(&app_state.pool, path.clone()).await {
-        Some(row) => {
-            if let Some(expires_at) = row.expires_at
-                && expires_at < Utc::now()
-            {
-                let _ = delete_url(&app_state.pool, path).await;
-                return Err(AppError::UrlNotFound);
-            }
-
-            let _ = sqlx::query!(
-                "update urls set visits = visits + 1 where short_code = $1",
-                path
-            )
-            .execute(&app_state.pool)
-            .await;
-
-            Ok(Redirect::permanent(&row.original_url))
-        }
-        None => Err(AppError::UrlNotFound),
-    }
 }
 
 async fn list_urls(State(app_state): State<Arc<AppState>>) -> Result<Json<Vec<UrlData>>, AppError> {

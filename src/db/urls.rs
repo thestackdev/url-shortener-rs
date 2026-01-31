@@ -1,7 +1,10 @@
 use chrono::{Duration, Utc};
 use sqlx::SqlitePool;
 
-use crate::{error::AppError, models::ShortenRequest};
+use crate::{
+    error::AppError,
+    models::{ShortenRequest, UrlData},
+};
 
 pub struct UrlDb {
     pool: SqlitePool,
@@ -27,5 +30,15 @@ impl UrlDb {
         ).execute(&self.pool).await?;
 
         Ok(short_code)
+    }
+
+    pub async fn get_url(&self, short_code: String) -> Option<UrlData> {
+        let response: Result<UrlData, _> =
+            sqlx::query_as("select * from urls where short_code = $1")
+                .bind(short_code)
+                .fetch_one(&self.pool)
+                .await;
+
+        response.ok()
     }
 }
