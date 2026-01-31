@@ -32,13 +32,12 @@ impl UrlDb {
         Ok(short_code)
     }
 
-    pub async fn get_url(&self, short_code: String) -> Option<UrlData> {
-        let response: Result<UrlData, _> =
-            sqlx::query_as("select * from urls where short_code = $1")
-                .bind(short_code)
-                .fetch_one(&self.pool)
-                .await;
+    pub async fn get_url(&self, short_code: String) -> Result<UrlData, AppError> {
+        let response: UrlData = sqlx::query_as("select * from urls where short_code = $1")
+            .bind(short_code)
+            .fetch_one(&self.pool)
+            .await?;
 
-        response.ok()
+        Ok(response)
     }
 }

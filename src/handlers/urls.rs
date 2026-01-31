@@ -29,7 +29,7 @@ pub async fn create_url_handler(
             short_code: short_code.clone(),
             short_url: format!("http://localhost:3000/{}", short_code),
         })),
-        Err(_) => Err(AppError::CodeAlreadyExists),
+        Err(e) => Err(e),
     }
 }
 
@@ -41,15 +41,16 @@ pub async fn handle_url_redirect(
 
     let url = url_db.get_url(path).await;
 
-    if let Some(data) = url {
-        if let Some(expires_at) = data.expires_at
-            && expires_at < Utc::now()
-        {
-            return Err(AppError::UrlNotFound);
-        }
+    match url {
+        Ok(data) => {
+            if let Some(expires_at) = data.expires_at
+                && expires_at < Utc::now()
+            {
+                return Err(AppError::UrlNotFound);
+            }
 
-        Ok(Redirect::permanent(&data.original_url))
-    } else {
-        Err(AppError::UrlNotFound)
+            Ok(Redirect::permanent(&data.original_url))
+        }
+        Err(e) => Err(e),
     }
 }
